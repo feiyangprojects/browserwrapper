@@ -1,16 +1,17 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "org.eu.feiyang.android.browserwrapper"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.eu.feiyang.android.browserwrapper"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 37
         versionCode = 2
         versionName = "1.1"
 
@@ -22,7 +23,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            optimization {
+                enable = true
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -38,9 +41,6 @@ android {
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.3"
     }
     packaging {
         resources {
