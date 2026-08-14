@@ -1,13 +1,12 @@
 package org.eu.feiyang.android.browserwrapper
 
-import android.content.Context
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,24 +28,39 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
-import org.eu.feiyang.android.browserwrapper.internal.Constants
+import dagger.hilt.android.AndroidEntryPoint
+import org.eu.feiyang.android.browserwrapper.internal.PreferencesViewModel
 import org.eu.feiyang.android.browserwrapper.internal.Utilities
 import org.eu.feiyang.android.browserwrapper.ui.theme.BrowserWrapperTheme
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val viewModel: PreferencesViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val preferences = getSharedPreferences(Constants.Preferences.NAME, Context.MODE_PRIVATE)
-
         setContent {
+            val browserPackage = viewModel.browserPackage.collectAsStateWithLifecycle()
+            val browserActivity = viewModel.browserActivity.collectAsStateWithLifecycle()
+            val editingBrowser = remember { mutableStateOf(false) }
+
+            //Check if browser is removed after initial setup
+            val browserInfo = try {
+                packageManager.getApplicationInfo(browserPackage.value, 0)
+            } catch (_: PackageManager.NameNotFoundException) {
+                packageManager.getApplicationInfo(packageName, 0)
+            }
+
             BrowserWrapperTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
@@ -56,54 +70,34 @@ class MainActivity : ComponentActivity() {
                     Scaffold(topBar = {
                         CenterAlignedTopAppBar(title = {
                             Text(
-                                text = stringResource(R.string.app_name)
+                                text = stringResource(id = R.string.app_name)
                             )
                         })
                     }) { paddingValues ->
                         Column(modifier = Modifier.padding(paddingValues)) {
-                            val browser = remember {
-                                mutableStateOf(
-                                    preferences.getString(
-                                        Constants.Preferences.NAME_BROWSER,
-                                        packageName
-                                    )!!
-                                )
-                            }
-                            val editBrowser = remember { mutableStateOf(false) }
-
-                            //Check if browser is removed after initial setup
-                            val browserInfo = try {
-                                packageManager.getApplicationInfo(browser.value.split("/")[0], 0)
-                            } catch (_: PackageManager.NameNotFoundException) {
-                                packageManager.getApplicationInfo(packageName, 0)
-                            }
-
                             PackagePreferenceCard(
-                                edit = editBrowser,
-                                title = stringResource(R.string.browser),
-                                description = if (browserInfo.packageName != packageName) stringResource(
-                                    id = R.string.browser_set_with_name,
-                                    browserInfo.packageName
-                                ) else stringResource(
-                                    id = R.string.browser_not_set
-                                ),
-                                icon = packageManager.getApplicationIcon(browserInfo)
+                                editing = editingBrowser,
+                                broken = browserInfo.packageName == packageName,
+                                icon = packageManager.getApplicationIcon(browserInfo),
+                                packageName = browserPackage
                             )
 
-                            if (editBrowser.value) {
+                            if (editingBrowser.value) {
                                 val browsers =
                                     Utilities.PackageManager.queryBrowsersIntentActivities(
                                         packageManager = packageManager, packageName = packageName
                                     )
 
                                 PackageListDialog(
-                                    show = editBrowser,
-                                    preference = browser,
-                                    preferenceEditor = preferences.edit(),
-                                    title = stringResource(
-                                        id = R.string.choose_browser
-                                    ),
-                                    list = browsers
+                                    editing = editingBrowser,
+                                    onPackageSelected = { pkg, act ->
+                                        viewModel.setBrowser(
+                                            pkg,
+                                            act
+                                        )
+                                    },
+                                    packageName = browserPackage,
+                                    packageList = browsers
                                 )
                             }
                         }
@@ -116,18 +110,19 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun PackagePreferenceCard(
-    edit: MutableState<Boolean>,
-    title: String,
-    description: String,
-    icon: Drawable
+    editing: MutableState<Boolean>,
+    broken: Boolean,
+    icon: Drawable,
+    packageName: State<String>
 ) {
     Card(
-        onClick = { edit.value = !edit.value },
+        onClick = { editing.value = !editing.value },
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+
             Image(
                 painter = rememberDrawablePainter(drawable = icon),
                 contentDescription = null,
@@ -135,8 +130,18 @@ fun PackagePreferenceCard(
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = title, style = MaterialTheme.typography.titleLarge)
-                Text(text = description, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = stringResource(id = R.string.browser),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = if (broken) stringResource(
+                        id = R.string.browser_not_set
+                    ) else stringResource(
+                        id = R.string.browser_set_with_name,
+                        packageName.value
+                    ), style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
@@ -144,45 +149,52 @@ fun PackagePreferenceCard(
 
 @Composable
 fun PackageListDialog(
-    show: MutableState<Boolean>,
-    preference: MutableState<String>,
-    preferenceEditor: SharedPreferences.Editor,
-    title: String,
-    list: List<ResolveInfo>
+    editing: MutableState<Boolean>,
+    onPackageSelected: (String, String) -> Unit,
+    packageName: State<String>,
+    packageList: List<ResolveInfo>
 ) {
-    if (show.value) {
-        val (selectedOption, onOptionSelected) = remember { mutableStateOf(list[0]) }
+    if (editing.value) {
+        val (selectedOption, onOptionSelected) = remember {
+            mutableStateOf(
+                packageList[maxOf(
+                    packageList.indexOfFirst { it.activityInfo.packageName == packageName.value },
+                    0
+                )]
+            )
+        }
         AlertDialog(
-            onDismissRequest = { show.value = !show.value },
+            onDismissRequest = { editing.value = !editing.value },
             confirmButton = {
                 TextButton(onClick = {
-                    show.value = false
+                    editing.value = false
 
-                    preference.value =
-                        selectedOption.activityInfo.packageName + "/" + selectedOption.activityInfo.name
-                    preferenceEditor.putString(Constants.Preferences.NAME_BROWSER, preference.value)
-                    preferenceEditor.apply()
+                    onPackageSelected(
+                        selectedOption.activityInfo.packageName,
+                        selectedOption.activityInfo.name
+                    )
                 }) {
                     Text(text = stringResource(id = R.string.confirm))
                 }
             }, dismissButton = {
                 TextButton(onClick = {
-                    show.value = !show.value
+                    editing.value = !editing.value
                 }) {
                     Text(text = stringResource(id = R.string.cancel))
                 }
             },
-            title = { Text(text = title) },
+            title = { Text(text = stringResource(id = R.string.choose_browser)) },
             text = {
                 Column {
-                    list.forEach { resolveInfo ->
-                        Row(modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp)
-                            .selectable(
-                                selected = (resolveInfo == selectedOption),
-                                onClick = { onOptionSelected(resolveInfo) }
-                            )) {
+                    packageList.forEach { resolveInfo ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .selectable(
+                                    selected = (resolveInfo == selectedOption),
+                                    onClick = { onOptionSelected(resolveInfo) }
+                                )) {
                             RadioButton(
                                 selected = (resolveInfo == selectedOption),
                                 onClick = null

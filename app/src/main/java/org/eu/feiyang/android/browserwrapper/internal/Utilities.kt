@@ -6,7 +6,7 @@ import android.content.pm.ResolveInfo
 import android.net.Uri
 
 object Utilities {
-    object Intent {
+    object Chrome {
         fun newCustomTabIntent(
             browser: ComponentName, uri: Uri, incognito: Boolean
         ): android.content.Intent {
@@ -16,11 +16,15 @@ object Utilities {
                 action = android.content.Intent.ACTION_VIEW
                 data = uri
                 component = browser
-                putExtra(Constants.Intent.EXTEA_CHROME_CUSTOM_TAB_SESSION, session)
+                putExtra("android.support.customtabs.extra.SESSION", session)
                 if (incognito) {
-                    putExtra(Constants.Intent.EXTRA_CHROME_CUSTOM_TAB_INCOGNITO, true)
+                    putExtra("com.google.android.apps.chrome.EXTRA_OPEN_NEW_INCOGNITO_TAB", true)
                 }
             }
+        }
+
+        fun supportCCTIncognito(activity: String): Boolean {
+            return activity == "com.google.android.apps.chrome.IntentDispatcher"
         }
     }
 
