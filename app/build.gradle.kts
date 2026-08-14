@@ -57,6 +57,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.activity:activity-compose:1.8.0")
     implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation("androidx.browser:browser:1.10.0")
     implementation(platform("androidx.compose:compose-bom:2023.10.01"))
     implementation("androidx.compose.ui:ui:1.5.4")
     implementation("androidx.compose.ui:ui-graphics:1.5.4")

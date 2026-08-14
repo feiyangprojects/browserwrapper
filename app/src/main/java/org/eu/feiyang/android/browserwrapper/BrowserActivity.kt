@@ -3,11 +3,11 @@ package org.eu.feiyang.android.browserwrapper
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ComponentName
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,10 +24,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,8 +67,8 @@ class BrowserActivity : ComponentActivity() {
                     BrowserDialog(
                         activity = this,
                         clipboardManager = clipboardManager,
-                        browser = ComponentName(browserPackage.value, browserActivity.value),
-                        incognitoSupported = Chrome.supportCCTIncognito(browserActivity.value)
+                        browserPackage = browserPackage,
+                        browserActivity = browserActivity
                     )
                 }
             }
@@ -78,10 +80,11 @@ class BrowserActivity : ComponentActivity() {
 fun BrowserDialog(
     activity: Activity,
     clipboardManager: ClipboardManager,
-    browser: ComponentName?,
-    incognitoSupported: Boolean
+    browserPackage: State<String>,
+    browserActivity: State<String>
 ) {
-    val incognito = remember { mutableStateOf(incognitoSupported) }
+    val incognito = remember { mutableStateOf(false) }
+    val incognitoSupported = Chrome.supportCCTIncognito(browserActivity.value)
 
     BasicAlertDialog(
         onDismissRequest = { activity.finish() },
@@ -147,15 +150,14 @@ fun BrowserDialog(
                         }) {
                             Text(text = stringResource(id = R.string.copy))
                         }
-                        if (browser != null) {
+                        val context = LocalContext.current
+                        if (!browserPackage.value.isEmpty()) {
                             TextButton(onClick = {
-                                val intent = Chrome.newCustomTabIntent(
-                                    browser = browser,
-                                    uri = activity.intent.data!!,
-                                    incognito = incognito.value
-                                )
-                                activity.startActivity(intent)
-                                activity.finish()
+                                val intent = CustomTabsIntent.Builder().apply {
+                                    setEphemeralBrowsingEnabled(incognito.value)
+                                }.build()
+                                intent.intent.setPackage(browserPackage.value)
+                                intent.launchUrl(context, activity.intent.data!!)
                             }) {
                                 Text(text = stringResource(id = R.string.open))
                             }
