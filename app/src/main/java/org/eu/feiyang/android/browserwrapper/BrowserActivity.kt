@@ -1,10 +1,9 @@
 package org.eu.feiyang.android.browserwrapper
 
-import android.app.Activity
 import android.content.ClipData
-import android.content.ClipboardManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -28,14 +27,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import org.eu.feiyang.android.browserwrapper.internal.PreferencesViewModel
 import org.eu.feiyang.android.browserwrapper.internal.Utilities.Chrome
 import org.eu.feiyang.android.browserwrapper.ui.theme.BrowserWrapperTheme
@@ -64,8 +66,6 @@ class BrowserActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background.copy(alpha = 0f)
                 ) {
                     BrowserDialog(
-                        activity = this,
-                        clipboardManager = clipboardManager,
                         browserPackage = browserPackage,
                         browserActivity = browserActivity
                     )
@@ -77,16 +77,18 @@ class BrowserActivity : ComponentActivity() {
 
 @Composable
 fun BrowserDialog(
-    activity: Activity,
-    clipboardManager: ClipboardManager,
     browserPackage: State<String>,
     browserActivity: State<String>
 ) {
+    val activity = LocalActivity.current
+    val clipboardManager = LocalClipboard.current
+
     val incognito = remember { mutableStateOf(false) }
     val incognitoSupported = Chrome.supportCCTIncognito(browserActivity.value)
+    val scope = rememberCoroutineScope()
 
     BasicAlertDialog(
-        onDismissRequest = { activity.finish() },
+        onDismissRequest = { activity?.finish() },
         modifier = Modifier,
         content = {
             Surface(
@@ -107,7 +109,7 @@ fun BrowserDialog(
                         color = AlertDialogDefaults.titleContentColor
                     )
                     Text(
-                        text = activity.intent.dataString!!,
+                        text = activity?.intent?.dataString!!,
                         modifier = Modifier.weight(1f, false),
                         overflow = TextOverflow.Ellipsis,
                         color = AlertDialogDefaults.textContentColor
@@ -140,23 +142,26 @@ fun BrowserDialog(
                             Text(text = stringResource(id = R.string.close))
                         }
                         TextButton(onClick = {
-                            val clip = ClipData.newPlainText(
-                                activity.intent.type,
-                                activity.intent.dataString!!
+                            val clip = ClipEntry(
+                                ClipData.newPlainText(
+                                    "",
+                                    activity.intent.dataString!!
+                                )
                             )
-                            clipboardManager.setPrimaryClip(clip)
-                            activity.finish()
+                            scope.launch {
+                                clipboardManager.setClipEntry(clip)
+                                activity.finish()
+                            }
                         }) {
                             Text(text = stringResource(id = R.string.copy))
                         }
-                        val context = LocalContext.current
                         if (!browserPackage.value.isEmpty()) {
                             TextButton(onClick = {
                                 val intent = CustomTabsIntent.Builder().apply {
                                     setEphemeralBrowsingEnabled(incognito.value)
                                 }.build()
                                 intent.intent.setPackage(browserPackage.value)
-                                intent.launchUrl(context, activity.intent.data!!)
+                                intent.launchUrl(activity, activity.intent.data!!)
                             }) {
                                 Text(text = stringResource(id = R.string.open))
                             }
