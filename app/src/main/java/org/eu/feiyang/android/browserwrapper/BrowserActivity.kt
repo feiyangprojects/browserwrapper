@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
@@ -51,9 +52,7 @@ class BrowserActivity : ComponentActivity() {
             finish()
         }
 
-        val clipboardManager =
-            getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-
+        enableEdgeToEdge()
         setContent {
             val browserPackage = viewModel.browserPackage.collectAsStateWithLifecycle()
             val browserActivity = viewModel.browserActivity.collectAsStateWithLifecycle()
