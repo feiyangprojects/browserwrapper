@@ -33,7 +33,7 @@ jobs:
           KEYSTORE_FILE: ${{ secrets.ANDROID_KEYSTORE_FILE }}
         if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/') }}
         run: |
-          base64 -d <<< "$KEYSTORE_FILE" > android.jks
+          base64 -d <<< "$KEYSTORE_FILE" > app/android.jks
       - name: Build debug application
         run: |
           ./gradlew assembleDebug

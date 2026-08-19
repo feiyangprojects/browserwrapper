@@ -33,7 +33,7 @@ extensions.configure<ApplicationExtension> {
                 keyPassword = System.getenv("KEY_PASSWORD")
             }
         } catch (_: Exception) {
-            project.logger.warn("WARNING: KeyStore is not configured, outputs are not signed")
+            project.logger.warn("WARNING: KeyStore is not configured, release outputs are not signed")
         }
     }
 
@@ -52,6 +52,8 @@ extensions.configure<ApplicationExtension> {
             val signCfg = signingConfigs.getByName("release")
             if (signCfg.storeFile?.exists() == true) {
                 signingConfig = signCfg
+            } else {
+                project.logger.warn("WARNING: KeyStore is configured but file can't be found")
             }
         }
     }
