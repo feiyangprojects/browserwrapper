@@ -24,6 +24,18 @@ extensions.configure<ApplicationExtension> {
             useSupportLibrary = true
         }
     }
+    signingConfigs {
+        try {
+            create("release") {
+                storeFile = file(System.getenv("KEYSTORE_PATH"))
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        } catch (_: Exception) {
+            project.logger.warn("WARNING: KeyStore is not configured, outputs are not signed")
+        }
+    }
 
     buildTypes {
         debug {
@@ -37,6 +49,10 @@ extensions.configure<ApplicationExtension> {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val signCfg = signingConfigs.getByName("release")
+            if (signCfg.storeFile?.exists() == true) {
+                signingConfig = signCfg
+            }
         }
     }
     compileOptions {
