@@ -11,4 +11,6 @@
     <string name="open">Open</string>
     <string name="open_this_uri">Open this URI?</string>
     <string name="open_with_incognito">Open with Incognito</string>
+    <string name="no_customtabs_if_not_with_incognito">No Custom Tabs if not with Incognito</string>
+    <string name="no_customtabs_if_not_with_incognito_description">Open URI without Custom Tabs style if \"Open with Incognito\" is not selected.</string>
 </resources>

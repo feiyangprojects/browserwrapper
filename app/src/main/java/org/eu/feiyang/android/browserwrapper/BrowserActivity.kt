@@ -1,6 +1,7 @@
 package org.eu.feiyang.android.browserwrapper
 
 import android.content.ClipData
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
@@ -58,6 +59,8 @@ class BrowserActivity : ComponentActivity() {
         setContent {
             val browserPackage = viewModel.browserPackage.collectAsStateWithLifecycle()
             val browserActivity = viewModel.browserActivity.collectAsStateWithLifecycle()
+            val noCustomTabsIfNotWithIncognito =
+                viewModel.noCustomTabsIfNotWithIncognito.collectAsStateWithLifecycle()
 
             BrowserWrapperTheme {
                 // A surface container using the 'background' color from the theme
@@ -67,7 +70,8 @@ class BrowserActivity : ComponentActivity() {
                 ) {
                     BrowserDialog(
                         browserPackage = browserPackage,
-                        browserActivity = browserActivity
+                        browserActivity = browserActivity,
+                        noCustomTabsIfNotWithIncognito = noCustomTabsIfNotWithIncognito
                     )
                 }
             }
@@ -78,7 +82,8 @@ class BrowserActivity : ComponentActivity() {
 @Composable
 fun BrowserDialog(
     browserPackage: State<String>,
-    browserActivity: State<String>
+    browserActivity: State<String>,
+    noCustomTabsIfNotWithIncognito: State<Boolean>
 ) {
     val activity = LocalActivity.current
     val clipboardManager = LocalClipboard.current
@@ -157,11 +162,18 @@ fun BrowserDialog(
                         }
                         if (!browserPackage.value.isEmpty()) {
                             TextButton(onClick = {
-                                val intent = CustomTabsIntent.Builder().apply {
-                                    setEphemeralBrowsingEnabled(incognito.value)
-                                }.build()
-                                intent.intent.setPackage(browserPackage.value)
-                                intent.launchUrl(activity, activity.intent.data!!)
+                                if (noCustomTabsIfNotWithIncognito.value && !incognito.value) {
+                                    val intent = Intent(Intent.ACTION_VIEW, activity.intent.data!!)
+                                    intent.setPackage(browserPackage.value)
+                                    activity.startActivity(intent)
+                                } else {
+                                    val intent = CustomTabsIntent.Builder().apply {
+                                        setEphemeralBrowsingEnabled(incognito.value)
+                                    }.build()
+                                    intent.intent.setPackage(browserPackage.value)
+                                    intent.launchUrl(activity, activity.intent.data!!)
+                                }
+                                activity.finish()
                             }) {
                                 Text(text = stringResource(id = R.string.open))
                             }
