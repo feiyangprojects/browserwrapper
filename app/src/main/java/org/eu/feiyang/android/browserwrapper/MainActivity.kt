@@ -134,7 +134,9 @@ fun PackagePreferenceCard(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = stringResource(id = R.string.browser),
-                    style = MaterialTheme.typography.titleLarge
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
                     text = if (broken) stringResource(
